@@ -1,3 +1,10 @@
+terraform {
+    backend "s3" {
+        bucket = "tfstate-gamo-first-terraform"
+        key = "terraform_test/terraform.tfstate"
+        region = "ap-northeast-1"
+    }
+}
 resource "aws_vpc" "wordpress_dev" {
     cidr_block           = "10.0.0.0/24"
     enable_dns_hostnames = false
@@ -19,6 +26,17 @@ resource "aws_subnet" "subnet-0468596059578f067-Public-Subnet" {
 
     tags = {
         Name = "Public-Subnet"
+    }
+}
+
+resource "aws_subnet" "subnet-multiaz-Public-Subnet" {
+    vpc_id                  = "vpc-085516d3f8f6801af"
+    cidr_block              = "100.0.4.0/24"
+    availability_zone       = "ap-northeast-1c"
+    map_public_ip_on_launch = false
+
+    tags = {
+        Name = "Public-Subnet2"
     }
 }
 
@@ -151,4 +169,13 @@ module "terraform_test_sg_ssh" {
 }
 output public_ip_for_nat_gateway {
     value = aws_eip.terraform_test_ip_for_nat_gw.public_ip
+}
+output public_subnet_id {
+    value = aws_subnet.subnet-0468596059578f067-Public-Subnet.id
+}
+output public_subnet2_id {
+    value = aws_subnet.subnet-multiaz-Public-Subnet.id
+}
+output wordpress_dev_vpc_id {
+    value = aws_vpc.wordpress_dev.id
 }

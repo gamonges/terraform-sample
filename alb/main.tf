@@ -49,7 +49,7 @@ resource "aws_lb" "terraform-test-alb" {
     load_balancer_type = "application"
     internal           = false
     idle_timeout       = 60
-    enable_deletion_protection = true
+    enable_deletion_protection = false
 
     subnets = [
         data.terraform_remote_state.vpc.outputs.public_subnet_id,
@@ -117,38 +117,37 @@ resource "aws_lb_listener" "http" {
     }
 }
 
-resource "aws_acm_certificate" "example" {
-    domain_name = aws_route53_record.example.domain_name
-    subjrct_alternative_names = []
-    validation_method = "DNS"
+#resource "aws_acm_certificate" "example" {
+#    domain_name = aws_route53_record.example.domain_name
+#    subjrct_alternative_names = []
+#    validation_method = "DNS"
+#
+#    lifecycle {
+#        create_before_destroy = true
+#    }
+#}
+#
+#resource "aws_acm_certificate_validation" "exmaple" {
+#    certificate_arn = aws_acm_certificate.example.arn
+#    validation_record_fqdns = [aws_route53_record.exmaple_certificate.fqdn]
+#}
 
-    lifecycle {
-        create_before_destroy = true
-    }
-}
-
-resource "aws_acm_certificate_validation" "exmaple" {
-    certificate_arn = aws_acm_certificate.example.arn
-    validation_record_fqdns = [aws_route53_record.exmaple_certificate.fqdn]
-}
-
-resource "aws_lb_listener" "https" {
-    load_balancer_arn = aws_lb.terraform-test-alb.arn
-    port = "443"
-    protocol = "HTTPS"
-    certificate_arn = aws_acm_certificate.example.arn
-    ssl_policy = "ELBSecurityPolicy-2016-08"
-
-    default_action {
-        type = "fixed-response"
-    }
-
-    fixed_response {
-        content_type = "text/plain"
-        message_body = "これは「HTTPS」です。"
-        status_code = "200"
-    }
-}
+#resource "aws_lb_listener" "https" {
+#    load_balancer_arn = aws_lb.terraform-test-alb.arn
+#    port = "443"
+#    protocol = "HTTPS"
+##    certificate_arn = aws_acm_certificate.example.arn
+#    ssl_policy = "ELBSecurityPolicy-2016-08"
+#
+#    default_action {
+#        type = "fixed-response"
+#        fixed_response {
+#            content_type = "text/plain"
+#            message_body = "これは「HTTPS」です。"
+#            status_code = "200"
+#        }
+#    }
+#}
 
 resource "aws_lb_listener" "redirect_http_to_https" {
     load_balancer_arn = aws_lb.terraform-test-alb.arn
@@ -157,39 +156,56 @@ resource "aws_lb_listener" "redirect_http_to_https" {
 
     default_action {
         type = "redirect"
-    }
-
-    redirect {
-        port = "443"
-        protocol = "HTTPS"
-        status_code = "HTTP_301"
+        redirect {
+            port = "443"
+            protocol = "HTTPS"
+            status_code = "HTTP_301"
+        }
     }
 }
 
 resource "aws_lb_target_group" "example" {
     name = "example"
     target_type = "ip"
-    vpc_id = aws_vpc.example.id
+    vpc_id = data.terraform_remote_state.vpc.outputs.wordpress_dev_vpc_id
     port = 80
     protocol = "HTTP"
     deregistration_delay = 300
 
     health_check {
         path = "/"
-        healthy_threshhold = 5
-        unhealthy_threshholod = 2
-        timout = 5
+        healthy_threshold = 5
+        unhealthy_threshold = 2
+        timeout = 5
         interval = 30
         matcher = 200
         port = "traffic-port"
         protocol = "HTTP"
     }
 
-    depends_on = [aws_lb.example]
+    depends_on = [aws_lb.terraform-test-alb]
 }
 
+resource "aws_lb_listener_rule" "example" {
+    listener_arn = aws_lb_listener.http.arn
+    priority = 100
+
+    action {
+        type = "forward"
+        target_group_arn = aws_lb_target_group.example.arn
+    }
+
+    condition {
+        path_pattern {
+            values = ["/*"]
+        }
+    }
+}
 
 
 output "alb_dns_name" {
     value = aws_lb.terraform-test-alb.dns_name
+}
+output http_target_group_arn {
+    value = aws_lb_target_group.example.arn
 }

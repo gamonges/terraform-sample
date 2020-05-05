@@ -179,3 +179,7 @@ output public_subnet2_id {
 output wordpress_dev_vpc_id {
     value = aws_vpc.wordpress_dev.id
 }
+
+output private_subnet_id {
+    value = aws_subnet.subnet-09884f6f01e76da38-Private-Subnet.id
+}
